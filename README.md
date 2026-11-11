@@ -3,7 +3,7 @@
 API de la Plateforme de Pseudo Code Algo : interpréteur de pseudo-code
 algorithmique en français et gestion des cours.
 
-Interface web : [pseudocode-frontend](https://github.com/Mohamed00077/pseudocode-frontend)
+Interface web : [pseudocode-frontend](https://github.com/C-d-ngdev/pseudocode-frontend)
 
 ## Fonctionnalités
 
@@ -36,7 +36,7 @@ Interface web : [pseudocode-frontend](https://github.com/Mohamed00077/pseudocode
 
 ```bash
 # 1. Cloner le dépôt
-git clone https://github.com/Mohamed00077/pseudocode-backend.git
+git clone https://github.com/C-d-ngdev/pseudocode-backend.git
 cd pseudocode-backend
 
 # 2. Environnement virtuel

@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    container_name: pseudocode-db
+    environment:
+      POSTGRES_USER: pseudocode
+      POSTGRES_PASSWORD: motdepasse_dev
+      POSTGRES_DB: pseudocode
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
