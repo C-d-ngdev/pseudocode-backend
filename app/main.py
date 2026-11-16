@@ -21,4 +21,5 @@ def health():
 @app.post("/run")
 def run(payload: CodeIn):
     # TODO: brancher l'interpréteur ici
-    return {"output": f"Reçu {len(payload.code)} caractères"}
+    return {"output": f"Reçu {len(payload.code)} caractères",
+            "error": None,}
