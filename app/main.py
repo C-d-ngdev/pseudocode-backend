@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from app.interpreter.interpreter import executer_code
 
 app = FastAPI(title="Plateforme Pseudo-code")
 
@@ -20,5 +21,5 @@ def health():
 
 @app.post("/run")
 def run(payload: CodeIn):
-    # TODO: brancher l'interpréteur ici
-    return {"output": f"Reçu {len(payload.code)} caractères"}
+    return executer_code(payload.code)
+    

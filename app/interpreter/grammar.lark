@@ -1,0 +1,25 @@
+%import common.WS
+%import common.ESCAPED_STRING
+%import common.CNAME
+
+NOMBRE: /[0-9]+(\.[0-9]+)?/
+
+start: "DEBUT" instruction+ "FIN"
+
+valeur: NOMBRE
+      | ESCAPED_STRING
+      | CNAME
+      | "(" expression ")"
+      | "-" valeur -> negation
+
+affichage: "ECRIRE" "(" expression ")"
+affectation: CNAME ("=" | "<-") expression
+instruction: affectation | affichage
+
+expression: terme (operateur terme)*
+terme: valeur (operateur_mul valeur)*
+
+!operateur: "+" | "-"
+!operateur_mul: "*" | "/"
+
+%ignore WS
