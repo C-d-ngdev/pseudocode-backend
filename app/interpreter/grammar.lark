@@ -1,25 +1,73 @@
+// ============================================================
+//  Grammaire du pseudo-code : version 3
+//  (affichage, affectation, calculs, conditions, boucles)
+// ============================================================
+
 %import common.WS
 %import common.ESCAPED_STRING
 %import common.CNAME
 
 NOMBRE: /[0-9]+(\.[0-9]+)?/
 
+// ------------------------------------------------------------
+//  Programme
+// ------------------------------------------------------------
 start: "DEBUT" instruction+ "FIN"
+
+// Un bloc = une ou plusieurs instructions (corps d'un SI, d'une boucle)
+bloc: instruction+
+
+instruction: affectation
+           | affichage
+           | si
+           | pour
+           | tantque
+
+// ------------------------------------------------------------
+//  Instructions simples
+// ------------------------------------------------------------
+affichage: "ECRIRE" "(" expression ")"
+affectation: CNAME ("=" | "<-") expression
+
+// ------------------------------------------------------------
+//  Structures de contrôle
+//  - un SI peut contenir d'autres SI, des POUR, des TANT QUE...
+//  - SINON SI permet d'enchaîner plusieurs conditions avec un seul FINSI
+//  - le PAS d'une boucle POUR est facultatif (1 par défaut)
+// ------------------------------------------------------------
+si: "SI" condition "ALORS" bloc ("SINON" "SI" condition "ALORS" bloc)* ("SINON" bloc)? "FINSI"
+
+pour: "POUR" CNAME "DE" expression "A" expression pas? "FAIRE" bloc "FINPOUR"
+pas: "PAS" expression
+
+tantque: "TANT" "QUE" condition "FAIRE" bloc "FINTANTQUE"
+
+// ------------------------------------------------------------
+//  Conditions : OU (le moins prioritaire), ET, NON, comparaison
+// ------------------------------------------------------------
+condition: condition_et ("OU" condition_et)*
+condition_et: condition_non ("ET" condition_non)*
+
+condition_non: "NON" condition_non   -> non
+             | comparaison
+             | "(" condition ")"     -> groupe
+
+comparaison: expression comparateur expression
+!comparateur: "==" | "!=" | "<=" | ">=" | "<" | ">"
+
+// ------------------------------------------------------------
+//  Expressions arithmétiques
+// ------------------------------------------------------------
+expression: terme (operateur terme)*
+terme: valeur (operateur_mul valeur)*
+
+!operateur: "+" | "-"
+!operateur_mul: "*" | "/"
 
 valeur: NOMBRE
       | ESCAPED_STRING
       | CNAME
       | "(" expression ")"
       | "-" valeur -> negation
-
-affichage: "ECRIRE" "(" expression ")"
-affectation: CNAME ("=" | "<-") expression
-instruction: affectation | affichage
-
-expression: terme (operateur terme)*
-terme: valeur (operateur_mul valeur)*
-
-!operateur: "+" | "-"
-!operateur_mul: "*" | "/"
 
 %ignore WS
