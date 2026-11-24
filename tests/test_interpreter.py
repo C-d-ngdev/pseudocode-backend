@@ -563,3 +563,73 @@ def test_route_run_avec_condition_et_boucle():
     reponse = client.post("/run", json={"code": code})
     assert reponse.status_code == 200
     assert reponse.json() == {"output": "1\n3", "error": None}
+
+
+def test_lire_un_entier():
+    r = executer_code("DEBUT LIRE(x) ECRIRE(x * 2) FIN", ["21"])
+    assert r == {"output": "42", "error": None}
+
+
+def test_lire_un_reel():
+    r = executer_code("DEBUT LIRE(x) ECRIRE(x + 1) FIN", ["2.5"])
+    assert r == {"output": "3.5", "error": None}
+
+
+def test_lire_un_nombre_negatif():
+    r = executer_code("DEBUT LIRE(x) ECRIRE(x + 1) FIN", ["-5"])
+    assert r == {"output": "-4", "error": None}
+
+
+def test_lire_un_texte():
+    r = executer_code("DEBUT LIRE(nom) ECRIRE(nom) FIN", ["Awa"])
+    assert r == {"output": "Awa", "error": None}
+
+
+def test_lire_nan_reste_un_texte():
+    r = executer_code("DEBUT LIRE(x) ECRIRE(x) FIN", ["nan"])
+    assert r == {"output": "nan", "error": None}
+
+
+def test_lire_dans_une_boucle():
+    code = "DEBUT POUR i DE 1 A 3 FAIRE LIRE(x) ECRIRE(x) FINPOUR FIN"
+    r = executer_code(code, ["a", "b", "c"])
+    assert r == {"output": "a\nb\nc", "error": None}
+
+
+def test_saisie_manquante():
+    r = executer_code("DEBUT LIRE(x) LIRE(y) FIN", ["1"])
+    assert r["output"] == ""
+    assert "Saisie manquante" in r["error"]
+
+
+def test_lire_sans_inputs():
+    r = executer_code("DEBUT LIRE(x) FIN")
+    assert r["error"] is not None
+
+
+def test_saisies_en_trop_ignorees():
+    r = executer_code("DEBUT LIRE(x) ECRIRE(x) FIN", ["1", "2", "3"])
+    assert r == {"output": "1", "error": None}
+
+
+def test_calcul_sur_un_texte_lu():
+    r = executer_code("DEBUT LIRE(x) ECRIRE(x * 2) FIN", ["abc"])
+    assert "Opération impossible" in r["error"]
+
+
+def test_lire_dans_un_mot_reserve():
+    r = executer_code("DEBUT LIRE(FIN) FIN", ["1"])
+    assert r["error"] is not None
+
+
+def test_trop_de_saisies():
+    r = executer_code("DEBUT ECRIRE(1) FIN", ["x"] * 1001)
+    assert "Trop de saisies" in r["error"]
+
+
+def test_route_run_avec_inputs():
+    reponse = client.post(
+        "/run", json={"code": "DEBUT LIRE(x) ECRIRE(x * 2) FIN", "inputs": ["21"]}
+    )
+    assert reponse.status_code == 200
+    assert reponse.json() == {"output": "42", "error": None}    

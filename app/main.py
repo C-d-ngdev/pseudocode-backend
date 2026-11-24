@@ -7,8 +7,10 @@ from pydantic import BaseModel, Field
 from app.interpreter.exemples import EXEMPLES
 from app.interpreter.interpreter import (
     MAX_CARACTERES,
+    MAX_ENTREES,
     MAX_ITERATIONS,
     MAX_LIGNES,
+    MAX_LONGUEUR_ENTREE,
     executer_code,
 )
 
@@ -25,6 +27,7 @@ Les erreurs de pseudo-code sont renvoyées avec un statut **200** : lisez le cha
 |---|---|
 | Programme | `DEBUT ... FIN` |
 | Afficher | `ECRIRE(expression)` |
+| Lire une saisie | `LIRE(x)` |
 | Affecter | `x <- 5` ou `x = 5` |
 | Condition | `SI c ALORS ... SINON SI c ALORS ... SINON ... FINSI` |
 | Boucle avec compteur | `POUR i DE 1 A 10 PAS 2 FAIRE ... FINPOUR` (PAS facultatif) |
@@ -44,11 +47,21 @@ Les erreurs de pseudo-code sont renvoyées avec un statut **200** : lisez le cha
 - Dans `POUR`, le pas est facultatif (1 par défaut), peut être négatif, mais pas nul.
 - Les structures (`SI`, `POUR`, `TANT QUE`) peuvent s'imbriquer.
 
+## Saisies (`LIRE`)
+
+- `LIRE(x)` range la saisie suivante dans `x`.
+- Les saisies sont envoyées dans le champ facultatif `inputs`, **dans l'ordre**, sous forme de **textes**
+  (par exemple `["Awa", "20"]`, pas `[20]`).
+- Une saisie qui ressemble à un nombre devient un nombre, toute autre saisie reste un texte.
+- Si le programme demande plus de saisies que `inputs` n'en contient, une erreur est renvoyée.
+  Les saisies en trop sont ignorées.
+
 ## Limites
 
 - {MAX_CARACTERES} caractères par programme
 - {MAX_ITERATIONS} répétitions de boucle au total
 - {MAX_LIGNES} lignes affichées
+- {MAX_ENTREES} saisies au maximum, de {MAX_LONGUEUR_ENTREE} caractères chacune
 
 Pour essayer : ouvrez `POST /run`, cliquez sur **Try it out**, choisissez un
 exemple dans la liste déroulante, puis **Execute**.
@@ -61,7 +74,7 @@ TAGS = [
 
 app = FastAPI(
     title="Plateforme Pseudo-code",
-    version="0.2.0",
+    version="0.3.0",
     description=DESCRIPTION,
     openapi_tags=TAGS,
 )
@@ -78,6 +91,13 @@ class CodeIn(BaseModel):
     code: str = Field(
         description="Programme de pseudo-code à exécuter (de DEBUT à FIN)."
     )
+    inputs: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Saisies consommées dans l'ordre par les instructions LIRE. "
+            'Envoyez-les sous forme de textes (par exemple ["21"], pas [21]).'
+        ),
+    )
 
 
 class ReponseRun(BaseModel):
@@ -90,12 +110,19 @@ class ReponseRun(BaseModel):
     )
 
 
+def corps_exemple(exemple):
+    """Corps JSON d'un exemple : `inputs` n'apparaît que pour les exemples qui en ont."""
+    corps = {"code": exemple["code"]}
+    if "inputs" in exemple:
+        corps["inputs"] = exemple["inputs"]
+    return corps
+
 
 EXEMPLES_REQUETE = {
     exemple["cle"]: {
         "summary": exemple["titre"],
         "description": exemple["description"],
-        "value": {"code": exemple["code"]},
+        "value": corps_exemple(exemple),
     }
     for exemple in EXEMPLES
 }
@@ -142,4 +169,4 @@ def health():
     responses=REPONSES_RUN,
 )
 def run(payload: Annotated[CodeIn, Body(openapi_examples=EXEMPLES_REQUETE)]):
-    return executer_code(payload.code)
+    return executer_code(payload.code, payload.inputs)

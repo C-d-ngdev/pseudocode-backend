@@ -5,10 +5,11 @@ Chaque exemple contient :
 - titre       : nom affiché dans la liste déroulante
 - description : phrase d'explication
 - code        : le programme
+- inputs      : (facultatif) les saisies envoyées à LIRE, dans l'ordre
 - sortie      : la sortie attendue ("" en cas d'erreur)
 - erreur      : le message d'erreur attendu (ou un début de message), None si tout va bien
 
-Le test tests/test_exemples.py exécute chaque exemple : la documentation
+Le test tests/test_examples.py exécute chaque exemple : la documentation
 ne peut donc pas devenir fausse sans que pytest le signale.
 """
 
@@ -35,6 +36,36 @@ FIN""",
   ECRIRE(age + 1)
 FIN""",
         "sortie": "Bonjour Awa\n18",
+        "erreur": None,
+    },
+    {
+        "cle": "lecture",
+        "titre": "Lire une saisie (LIRE)",
+        "description": "LIRE(x) range la saisie suivante dans x. Les saisies sont envoyées dans le champ inputs, dans l'ordre. Une saisie qui ressemble à un nombre devient un nombre, sinon c'est un texte.",
+        "code": """DEBUT
+  LIRE(prenom)
+  LIRE(age)
+  ECRIRE("Bonjour " + prenom)
+  ECRIRE(age + 1)
+FIN""",
+        "inputs": ["Awa", "20"],
+        "sortie": "Bonjour Awa\n21",
+        "erreur": None,
+    },
+    {
+        "cle": "lecture_boucle",
+        "titre": "LIRE dans une boucle",
+        "description": "Chaque passage dans la boucle consomme la saisie suivante.",
+        "code": """DEBUT
+  total <- 0
+  POUR i DE 1 A 3 FAIRE
+    LIRE(nombre)
+    total <- total + nombre
+  FINPOUR
+  ECRIRE(total)
+FIN""",
+        "inputs": ["10", "20", "12.5"],
+        "sortie": "42.5",
         "erreur": None,
     },
     {
@@ -192,6 +223,17 @@ FIN""",
 FIN""",
         "sortie": "",
         "erreur": "Variable total non déclarée",
+    },
+    {
+        "cle": "erreur_saisie_manquante",
+        "titre": "Erreur : saisie manquante",
+        "description": "Ici LIRE demande une saisie, mais le champ inputs est vide.",
+        "code": """DEBUT
+  LIRE(age)
+  ECRIRE(age)
+FIN""",
+        "sortie": "",
+        "erreur": "Saisie manquante",
     },
     {
         "cle": "erreur_comparaison",

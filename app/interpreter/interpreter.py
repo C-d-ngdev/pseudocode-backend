@@ -11,12 +11,14 @@ from app.interpreter.parser import parser
 logger = logging.getLogger(__name__)
 
 # ---------- Limites de sécurité (la route /run est publique) ----------
-MAX_CARACTERES = 10_000     # taille maximale d'un programme
-MAX_ITERATIONS = 100_000    # nombre total de répétitions de boucles
-MAX_LIGNES = 10_000         # nombre maximal de lignes affichées
+MAX_CARACTERES = 10_000        # taille maximale d'un programme
+MAX_ITERATIONS = 100_000       # nombre total de répétitions de boucles
+MAX_LIGNES = 10_000            # nombre maximal de lignes affichées
+MAX_ENTREES = 1_000            # nombre maximal de saisies fournies à LIRE
+MAX_LONGUEUR_ENTREE = 1_000    # longueur maximale d'une saisie
 
 MOTS_RESERVES = {
-    "DEBUT", "FIN", "ECRIRE",
+    "DEBUT", "FIN", "ECRIRE", "LIRE",
     "SI", "ALORS", "SINON", "FINSI",
     "POUR", "DE", "PAS", "FAIRE", "FINPOUR",
     "TANT", "QUE", "FINTANTQUE",
@@ -40,12 +42,14 @@ class ErreurPseudocode(Exception):
 
 
 class Contexte:
-    """État d'une exécution : variables, lignes affichées, compteur de répétitions."""
+    """État d'une exécution : variables, lignes affichées, répétitions, saisies."""
 
-    def __init__(self):
+    def __init__(self, entrees=None):
         self.variables = {}
         self.sortie = []
         self.iterations = 0
+        self.entrees = entrees or []
+        self.position_entree = 0
 
     def compter_iteration(self):
         self.iterations += 1
@@ -55,10 +59,18 @@ class Contexte:
                 "(boucle infinie ?)"
             )
 
+    def entree_suivante(self):
+        if self.position_entree >= len(self.entrees):
+            raise ErreurPseudocode(
+                f"Saisie manquante : le programme demande la saisie n°{self.position_entree + 1}, "
+                f"mais {len(self.entrees)} saisie(s) seulement ont été fournies"
+            )
+        valeur = self.entrees[self.position_entree]
+        self.position_entree += 1
+        return valeur
 
-# ============================================================
+
 #  Valeurs et expressions
-# ============================================================
 
 def est_nombre(valeur):
     return isinstance(valeur, (int, float)) and not isinstance(valeur, bool)
@@ -166,9 +178,7 @@ def interprete_expression(expression, variables):
     return resultat
 
 
-# ============================================================
 #  Conditions
-# ============================================================
 
 def comparer(operateur, gauche, droite):
     if est_nombre(gauche) != est_nombre(droite):
@@ -208,15 +218,39 @@ def evaluer_condition(condition, variables):
     return any(evaluer_condition_et(e, variables) for e in condition.children)
 
 
-# ============================================================
 #  Instructions
-# ============================================================
+
 
 def verifier_nom_variable(nom):
     if nom in MOTS_RESERVES:
         raise ErreurPseudocode(
             f"« {nom} » est un mot réservé, impossible de l'utiliser comme nom de variable"
         )
+
+
+def verifier_saisies(entrees):
+    """Contrôle les saisies fournies avec le programme (nombre et longueur)."""
+    if len(entrees) > MAX_ENTREES:
+        raise ErreurPseudocode(f"Trop de saisies (maximum {MAX_ENTREES})")
+    for texte in entrees:
+        if len(texte) > MAX_LONGUEUR_ENTREE:
+            raise ErreurPseudocode(
+                f"Une saisie dépasse {MAX_LONGUEUR_ENTREE} caractères"
+            )
+    return entrees
+
+
+def convertir_saisie(texte):
+    """Une saisie qui ressemble à un nombre devient un nombre, sinon c'est un texte.
+
+    On passe par une expression régulière plutôt que par int()/float() seuls :
+    float("nan") et float("inf") sont acceptés par Python, mais pour nous
+    ce sont de simples textes.
+    """
+    propre = texte.strip()
+    if re.fullmatch(r"-?[0-9]+(\.[0-9]+)?", propre):
+        return convertir_nombre(propre)
+    return texte
 
 
 def executer_affectation(affectation, ctx):
@@ -230,6 +264,12 @@ def executer_affichage(affichage, ctx):
         raise ErreurPseudocode(f"Trop de lignes affichées (maximum {MAX_LIGNES})")
     valeur = interprete_expression(affichage.children[0], ctx.variables)
     ctx.sortie.append(formater(valeur))
+
+
+def executer_lecture(lecture, ctx):
+    nom = str(lecture.children[0])
+    verifier_nom_variable(nom)
+    ctx.variables[nom] = convertir_saisie(ctx.entree_suivante())
 
 
 def executer_si(noeud, ctx):
@@ -261,7 +301,6 @@ def executer_pour(noeud, ctx):
     if pas == 0:
         raise ErreurPseudocode("Le pas d'une boucle POUR ne peut pas être zéro")
 
-
     repetitions = math.floor(round((fin - debut) / pas, 9)) + 1
     for k in range(max(repetitions, 0)):
         ctx.compter_iteration()
@@ -282,6 +321,8 @@ def executer_instruction(instruction, ctx):
         executer_affectation(noeud, ctx)
     elif noeud.data == "affichage":
         executer_affichage(noeud, ctx)
+    elif noeud.data == "lecture":
+        executer_lecture(noeud, ctx)
     elif noeud.data == "si":
         executer_si(noeud, ctx)
     elif noeud.data == "pour":
@@ -297,16 +338,16 @@ def executer_bloc(bloc, ctx):
         executer_instruction(instruction, ctx)
 
 
-def executer(arbre):
-    ctx = Contexte()
+def executer(arbre, entrees=None):
+    ctx = Contexte(entrees)
     for instruction in arbre.children:
         executer_instruction(instruction, ctx)
     return "\n".join(ctx.sortie)
 
 
-# ============================================================
+
 #  Point d'entrée
-# ============================================================
+
 
 def message_syntaxe(erreur):
     ligne = getattr(erreur, "line", -1)
@@ -316,15 +357,16 @@ def message_syntaxe(erreur):
     return "Erreur de syntaxe : le programme est incomplet ou mal formé"
 
 
-def executer_code(code):
+def executer_code(code, inputs=None):
     if len(code) > MAX_CARACTERES:
         return {
             "output": "",
             "error": f"Programme trop long (maximum {MAX_CARACTERES} caractères)",
         }
     try:
+        entrees = verifier_saisies(inputs or [])
         arbre = parser.parse(code)
-        return {"output": executer(arbre), "error": None}
+        return {"output": executer(arbre, entrees), "error": None}
     except ErreurPseudocode as erreur:
         return {"output": "", "error": str(erreur)}
     except UnexpectedInput as erreur:

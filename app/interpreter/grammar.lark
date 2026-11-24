@@ -19,6 +19,7 @@ bloc: instruction+
 
 instruction: affectation
            | affichage
+           | lecture
            | si
            | pour
            | tantque
@@ -28,7 +29,7 @@ instruction: affectation
 // ------------------------------------------------------------
 affichage: "ECRIRE" "(" expression ")"
 affectation: CNAME ("=" | "<-") expression
-
+lecture: "LIRE" "(" CNAME ")"
 // ------------------------------------------------------------
 //  Structures de contrôle
 //  - un SI peut contenir d'autres SI, des POUR, des TANT QUE...
